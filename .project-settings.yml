@@ -9,10 +9,10 @@ extensions:
 environment: ghc-7.4.2-stable-13.09
 cabal-file: project.cabal
 modules:
-  TEST:
-    filename: src/TEST.hs
   Data.SequenceNumber:
     filename: src/Data/SequenceNumber.hs
+  TestSuite:
+    filename: src/TestSuite.hs
 version: 1
 extra-packages: ''
 ghc-args: []

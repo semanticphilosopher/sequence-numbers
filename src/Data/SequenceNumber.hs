@@ -3,9 +3,9 @@ module Data.SequenceNumber
   ( SequenceNumberField (..)
   , SequenceNumber
   , SeqNo8
---  , SeqNo16
---  , SeqNo32
---  , SeqNo64
+  , SeqNo16
+  , SeqNo32
+  , SeqNo64
   )
 where
 
@@ -21,17 +21,16 @@ import           Data.Word
 --   comparing two sequence numbers there is concept of "before" and "after" which is
 --   unambigious, provided the total number of active identifiers is within that bound.
 --
---   @fromEnum sn@ will generate all the possible sequence number, starting with @sn@
---   before it is re-used.
---
---   @repeat $ fromEnum sn@ will generate the infinite sequence, starting from @sn@.
+--   @fromEnum sn@ will generate all the possible sequence number (unbounded and wrapped)
+--  , starting with @sn@.
 
 class SequenceNumberField n m | n -> m where
   -- | The maximum absolute distance, typically half the repeat interval - 1.
   maxDistance :: n
-  -- | Convert the unsigned to signed distance, use of the matching Int,
+  -- | Calculate the signed distance, use of the matching Int,
   --   i.e. @SequenceNumberField Word8 Int8@ does the right thing
-  asDistance  :: n -> m
+  toSignedD   :: n -> m
+  distance    :: n -> n -> n
 
 --   Sequence numbers have a clear interpretation of `Eq`, for `Num` the arithmetic is
 --   modulo arithmetic on the underlying field (i.e. negation is equivalent to adding half
@@ -46,31 +45,60 @@ class SequenceNumberField n m | n -> m where
 --   However, implementing `compare` such that it raised an error under such circumstances
 --   is likely to cause confusion. To make the function total, a bias has to be chosen.
 --
+--   The bias implemented here is to make the `GT` outcome of `compare` the negation
+--   of the `LT` -- thus making `LT` accurate - with the junk mapped to the `GT` result.
 --
+--   However, the implmentations of `>=` and `>` to include the `maxDistance` calculation,
+--   thus they don't include any junk.
+--
+--   This means that, although `compare` is total, it will not be equivalent to the union
+--   of the results from `<=` and '>'.
 
-newtype SequenceNumber n = SN {unSN :: n}
-  deriving (Eq, Num)
+newtype SequenceNumber n m = SN {unSN :: n}
+  deriving (Eq, Num, Bounded, Integral, Real)
 
-instance (Show n) => Show (SequenceNumber n) where
+instance (Show n) => Show (SequenceNumber n m) where
   show = show . unSN
 
-instance SequenceNumberField (SequenceNumber Word8) Int8 where
-   maxDistance = SN $ (maxBound - minBound) `div` 2
-   asDistance  = fromIntegral . unSN
+instance (Bounded n, Num n, Integral n, Num m) =>
+    SequenceNumberField (SequenceNumber n m) m where
+     maxDistance  = SN $ (maxBound - minBound) `div` 2
+     toSignedD    = fromIntegral . unSN
+     distance a b = SN $ (unSN b) - (unSN a)
 
-{-
-instance (Eq n, Num n, Ord n, Bounded n, Integral n, SequenceNumberField n m)
-           => Ord (SequenceNumber n m) where
- a <= b
-    = (d' <= 0) && (SN (abs d') <= maxDistance)
-    where
-      d' = unSN a - unSN b
-
+{- -- specfic instance, useful for checking above
+instance SequenceNumberField SeqNo8 Int8 where
+  maxDistance  = SN $ (maxBound - minBound) `div` 2
+  toSignedD    = fromIntegral . unSN
+  distance a b = SN $ unSN a - unSN b
 -}
-type SeqNo8  = SequenceNumber Word8
 
--- instance SequenceNumberField (SequenceNumber Word8 Int8) Int8
--- type SeqNo16 = SequenceNumber Word16 Int16
--- type SeqNo32 = SequenceNumber Word32 Int32
--- type SeqNo64 = SequenceNumber Word64 Int64
+instance (Eq n, Ord m, Bounded n, Integral n, Num m) =>
+            Ord (SequenceNumber n m) where
+ a <= b
+    = (d' <= 0) && (abs d' <= md)
+    where
+      md = toSignedD $ maxDistance `asTypeOf` a
+      d' = toSignedD $ b `distance` a
+ a  > b
+    = (d'  > 0) && (abs d' <= md)
+    where
+      md = toSignedD $ maxDistance `asTypeOf` a
+      d' = toSignedD $ b `distance` a
+ a >= b
+    = (d' >= 0) && (abs d' <= md)
+    where
+      md = toSignedD $ maxDistance `asTypeOf` a
+      d' = toSignedD $ b `distance` a
+
+instance  (Integral n) => Enum (SequenceNumber n m) where
+  fromEnum    = fromIntegral . unSN
+  toEnum      = SN . fromIntegral
+  succ (SN n) = SN $ n + 1
+  pred (SN n) = SN $ n - 1
+
+type SeqNo8  = SequenceNumber Word8  Int8
+type SeqNo16 = SequenceNumber Word16 Int16
+type SeqNo32 = SequenceNumber Word32 Int32
+type SeqNo64 = SequenceNumber Word64 Int64
 
