@@ -26,12 +26,12 @@ import           Data.Word
 --
 --   @repeat $ fromEnum sn@ will generate the infinite sequence, starting from @sn@.
 
-class SequenceNumberField n where
+class SequenceNumberField n m | n -> m where
   -- | The maximum absolute distance, typically half the repeat interval - 1.
   maxDistance :: n
   -- | Convert the unsigned to signed distance, use of the matching Int,
   --   i.e. @SequenceNumberField Word8 Int8@ does the right thing
---  asDistance  :: n -> m
+  asDistance  :: n -> m
 
 --   Sequence numbers have a clear interpretation of `Eq`, for `Num` the arithmetic is
 --   modulo arithmetic on the underlying field (i.e. negation is equivalent to adding half
@@ -54,9 +54,9 @@ newtype SequenceNumber n = SN {unSN :: n}
 instance (Show n) => Show (SequenceNumber n) where
   show = show . unSN
 
-instance (Bounded n, Integral n) => SequenceNumberField (SequenceNumber n) where
+instance SequenceNumberField (SequenceNumber Word8) Int8 where
    maxDistance = SN $ (maxBound - minBound) `div` 2
---   asDistance  = fromIntegral . unSN
+   asDistance  = fromIntegral . unSN
 
 {-
 instance (Eq n, Num n, Ord n, Bounded n, Integral n, SequenceNumberField n m)
@@ -67,7 +67,9 @@ instance (Eq n, Num n, Ord n, Bounded n, Integral n, SequenceNumberField n m)
       d' = unSN a - unSN b
 
 -}
-type SeqNo8  = SequenceNumber Word8  -- Int8
+type SeqNo8  = SequenceNumber Word8
+
+-- instance SequenceNumberField (SequenceNumber Word8 Int8) Int8
 -- type SeqNo16 = SequenceNumber Word16 Int16
 -- type SeqNo32 = SequenceNumber Word32 Int32
 -- type SeqNo64 = SequenceNumber Word64 Int64
