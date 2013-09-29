@@ -1,11 +1,17 @@
 module-template: ! 'module MODULE_NAME where
 
 '
-extensions: {}
+extensions:
+  GeneralizedNewtypeDeriving: true
+  FlexibleInstances: true
+  MultiParamTypeClasses: true
 environment: ghc-7.4.2-stable-13.09
 cabal-file: project.cabal
 modules:
-  Main(src/Main.hs):
-    filename: src/Main.hs
+  TEST:
+    filename: src/TEST.hs
+  Data.SequenceNumber:
+    filename: src/Data/SequenceNumber.hs
 version: 1
+extra-packages: ''
 ghc-args: []
